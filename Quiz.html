@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Stranger Quizzes Hub</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #050505;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #quiz-container {
+            background: #111;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.2);
+            width: 480px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        h1 { color: #e94560; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* Стили меню выбора */
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            margin: 15px 0;
+            background: transparent;
+            color: white;
+            border: 2px solid;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-stranger { border-color: #e94560; box-shadow: 0 0 10px rgba(233, 69, 96, 0.3); }
+        .btn-stranger:hover { background: #e94560; box-shadow: 0 0 20px #e94560; }
+        
+        .btn-space { border-color: #00d2ff; box-shadow: 0 0 10px rgba(0, 210, 255, 0.3); }
+        .btn-space:hover { background: #00d2ff; box-shadow: 0 0 20px #00d2ff; }
+
+        /* Игровые элементы */
+        #timer-bar-container { width: 100%; background: #222; height: 8px; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
+        #timer-bar { width: 100%; height: 100%; background: #e94560; transition: width 0.1s linear; }
+
+        #question-image, .result-image {
+            width: 100%; height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;
+            border: 2px solid #333; background: #000;
+        }
+
+        .option-btn {
+            display: block; width: 100%; margin: 10px 0; padding: 15px;
+            background: #1a1a2e; border: 2px solid #444; color: white;
+            border-radius: 10px; cursor: pointer; transition: 0.2s;
+        }
+        .option-btn:hover:not(:disabled) { border-color: white; transform: scale(1.02); }
+
+        .back-btn { margin-top: 20px; background: none; border: none; color: #666; cursor: pointer; text-decoration: underline; }
+
+        /* Эффекты */
+        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-3px, 3px); } 100% { transform: translate(0); } }
+        .glitch-effect { animation: glitch 0.2s infinite; filter: contrast(150%); }
+    </style>
+</head>
+<body>
+
+<div id="quiz-container">
+    <div id="menu-section">
+        <h1>Выбери Квиз</h1>
+        <button class="menu-btn btn-stranger" onclick="initQuiz('stranger')">Очень Странные Дела</button>
+        <button class="menu-btn btn-space" onclick="initQuiz('space')">Тайны Космоса</button>
+    </div>
+
+    <div id="game-section" style="display: none;">
+        <div id="timer-bar-container"><div id="timer-bar"></div></div>
+        <img id="question-image" src="" alt="Quiz Image">
+        <div id="question-text">Приготовься...</div>
+        <div id="options-container"></div>
+        <button class="back-btn" onclick="location.reload()">← В меню</button>
+    </div>
+</div>
+
+<script>
+    const allQuizzes = {
+        stranger: [
+            { question: "Кого утащили в Изнанку в 1 сезоне?", options: { a: "Майка", b: "011", c: "Уилла" }, answer: "c", image: "will.jpg" },
+            { question: "Сколько сезонов в ОСД?", options: { a: "7", b: "5", c: "3" }, answer: "b", image: "seasons.jpg" },
+            { question: "Что сломал Стив Джонатану?", options: { a: "Камеру", b: "Руку", c: "Лицо" }, answer: "a", image: "camera.jpg" },
+            { question: "В каком городе живут герои?", options: { a: "Квиндом", b: "Новый Орлеан", c: "Хокинс" }, answer: "c", image: "hawkins.jpg" },
+            { question: "Сколько лепестков у Демогоргона?", options: { a: "6", b: "5", c: "10" }, answer: "b", image: "demo.jpg" },
+            // НОВЫЕ ВОПРОСЫ
+            { question: "Как зовут сестру Майка?", options: { a: "Нэнси", b: "Макс", c: "Барб" }, answer: "a", image: "nancy.jpg" },
+            { question: "Какое любимое блюдо Одиннадцатой?", options: { a: "Пицца", b: "Вафли Эгго", c: "Бургеры" }, answer: "b", image: "eggo.jpg" }
+        ],
+        space: [
+            { question: "Какая планета самая большая в Солнечной системе?", options: { a: "Марс", b: "Юпитер", c: "Сатурн" }, answer: "b", image: "jupiter.jpg" },
+            { question: "Кто был первым человеком в космосе?", options: { a: "Армстронг", b: "Гагарин", c: "Леонов" }, answer: "b", image: "gagarin.jpg" },
+            { question: "Какую планету называют 'Красной'?", options: { a: "Венеру", b: "Марс", c: "Плутон" }, answer: "b", image: "mars.jpg" }
+        ]
+    };
+
+    let currentQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let timeLeft = 10;
+    let timerInterval;
+
+    function initQuiz(theme) {
+        currentQuestions = allQuizzes[theme];
+        currentQuestionIndex = 0;
+        score = 0;
+        
+        // Меняем цвет таймера под тему
+        document.getElementById('timer-bar').style.background = (theme === 'space') ? '#00d2ff' : '#e94560';
+        
+        document.getElementById('menu-section').style.display = 'none';
+        document.getElementById('game-section').style.display = 'block';
+        showQuestion();
+    }
+
+    function showQuestion() {
+        clearInterval(timerInterval);
+        timeLeft = 10;
+        updateTimerBar();
+
+        const q = currentQuestions[currentQuestionIndex];
+        const img = document.getElementById('question-image');
+        img.src = q.image;
+        img.onerror = () => { img.src = "https://via.placeholder.com/400x250?text=Stranger+Things"; };
+
+        document.getElementById('question-text').innerText = q.question;
+        const optionsDiv = document.getElementById('options-container');
+        optionsDiv.innerHTML = '';
+
+        for (let key in q.options) {
+            const btn = document.createElement('button');
+            btn.innerText = q.options[key];
+            btn.className = 'option-btn';
+            btn.onclick = () => checkAnswer(key);
+            optionsDiv.appendChild(btn);
+        }
+        startTimer();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.1;
+            updateTimerBar();
+            if (timeLeft <= 0) { clearInterval(timerInterval); checkAnswer(null); }
+        }, 100);
+    }
+
+    function updateTimerBar() {
+        document.getElementById('timer-bar').style.width = Math.max((timeLeft / 10) * 100, 0) + "%";
+    }
+
+    function checkAnswer(chosenKey) {
+        clearInterval(timerInterval);
+        const q = currentQuestions[currentQuestionIndex];
+        if (chosenKey === q.answer) score++;
+
+        currentQuestionIndex++;
+        if (currentQuestionIndex < currentQuestions.length) {
+            setTimeout(showQuestion, 500);
+        } else {
+            showFinalResult();
+        }
+    }
+
+    function showFinalResult() {
+        const container = document.getElementById('quiz-container');
+        container.innerHTML = '<h1>Финиш!</h1><h2>Твой результат: ' + score + ' из ' + currentQuestions.length + '</h2>';
+        
+        const btn = document.createElement('button');
+        btn.innerText = "В главное меню";
+        btn.className = "menu-btn btn-stranger";
+        btn.onclick = () => location.reload();
+        container.appendChild(btn);
+    }
+</script>
+</body>
+</html>
